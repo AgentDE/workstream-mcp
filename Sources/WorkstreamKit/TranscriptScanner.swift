@@ -83,6 +83,9 @@ public struct TranscriptFacts: Codable, Equatable, Sendable {
     public var activeSeconds: Double = 0
     public var firstAt: Date?
     public var lastAt: Date?
+    /// The time of the transcript's first line, in file order. A fork's transcript begins with a copy of its
+    /// parent's conversation, stamped earlier than this; those lines are the parent's work and aren't counted.
+    public var startedAt: Date?
 
     public init() {}
 
@@ -327,9 +330,10 @@ public final class TranscriptScanner: @unchecked Sendable {
     // MARK: Snapshot
 
     struct Snapshot: Codable {
-        /// 5: names for reply addresses, sends only once they succeed (4: messages queued for the agent; 3: usage by day; 2: local HTML pages as artifacts); transcripts read
+        /// 6: a fork's inherited lines aren't counted (5: names for reply addresses, sends only once they succeed;
+        /// 4: messages queued for the agent; 3: usage by day; 2: local HTML pages as artifacts); transcripts read
         /// before are read again.
-        static let current = 5
+        static let current = 6
         var version = current
         var format: Format
         var offset: UInt64
@@ -429,6 +433,10 @@ public final class TranscriptScanner: @unchecked Sendable {
         switch format {
         case .codex: return processCodex(line)
         case .claude:
+            let at = Self.timestamp(of: line)
+            if facts.startedAt == nil, let at { facts.startedAt = at }
+            // Copied from the session this one was forked from: the parent's, not this session's.
+            if let at, let start = facts.startedAt, at < start.addingTimeInterval(-1) { return false }
             if line.starts(with: Self.recordPrefix) {
                 // A message from another session is queued for the agent and recorded only here when it's taken
                 // in mid-turn, so this is the one kind of Claude Code record read.
@@ -868,6 +876,12 @@ public enum Overlaps {
         public var second: String
         /// The later of the two edits.
         public var at: Date
+        public init(path: String, first: String, second: String, at: Date) {
+            self.path = path
+            self.first = first
+            self.second = second
+            self.at = at
+        }
     }
 
     /// Files edited by two of these agents within `window` of each other, the later edit within `recent` of `now`.

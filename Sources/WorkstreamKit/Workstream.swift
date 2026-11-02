@@ -540,6 +540,17 @@ public struct Workstream: Codable, Equatable, Sendable {
         return true
     }
 
+    /// Adds a note, or rewrites the one with its id in place.
+    public mutating func replaceNote(_ note: Note, at date: Date = Date()) {
+        var items = fyi?.items ?? []
+        if let index = items.firstIndex(where: { $0.id == note.id }) {
+            items[index] = note
+            fyi = FYISection(items: items, updated: date)
+        } else {
+            addNote(note, at: date)
+        }
+    }
+
     /// Removes notes past their expiry. Returns whether any went.
     @discardableResult
     public mutating func removeExpiredNotes(now: Date = Date()) -> Bool {

@@ -46,7 +46,7 @@ Then sections, each collapsible with a "last updated" time, shown when they have
 
 Nothing in the panel explains itself; every word is the workstream's content or a timestamp.
 
-**Overlapping edits.** When two agents in one group's folder edit the same file within 30 minutes of each other (from their transcripts; Claude and Codex), the app adds an FYI to each one's workstream ("train.py is also being edited by api-tests"), or one note when they share a workstream. These notes carry `by: "app"` and an `expires` a day later, after which the app removes them; each file and pair is noted once a day.
+**Overlapping edits.** When two agents in one group's folder edit the same file within 30 minutes of each other (from their transcripts; Claude and Codex), the app adds an FYI to each one's workstream ("train.py is also being edited by api-tests"), or one note when they share a workstream. A pair of agents gets one note, listing every file they share ("3 files are also being edited by api-tests: train.py, eval.py, data.py"), rewritten in place when another file is added. These notes carry `by: "app"` and an `expires` a day later, after which the app removes them. A fork's transcript begins with a copy of its parent's conversation, stamped before the fork; those lines are the parent's work, so they count toward neither overlaps nor the fork's Files, Stats and Usage.
 
 An open ask from a tab's agent marks the tab with a soft amber ring. The full needs-you treatment (amber dot, dock badge, notification) stays for permission prompts, where the agent really is stopped. The panel shows for every agent tab; Layout → Side Panel (⌥⌘I) hides it per tab. On a working area under 760 pt it folds to a 28 pt strip with the status dot and the number of open asks.
 

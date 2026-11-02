@@ -204,6 +204,28 @@ struct TranscriptTests {
         #expect(scanner.facts.linesAdded == 3 && scanner.facts.linesRemoved == 1)
     }
 
+    /// A fork's transcript starts at the fork and then repeats its parent's conversation, stamped earlier: that
+    /// history is the parent's work, so its edits and usage don't count for the fork.
+    @Test func aForkDoesNotCountItsParentsHistory() throws {
+        let fork = "2026-10-20T10:00:00.000Z", later = "2026-10-20T10:05:00.000Z"
+        let url = try Fixture.write([
+            #"{"type":"queue-operation","operation":"dequeue","timestamp":"\#(fork)","sessionId":"s"}"# + "\n",
+            Fixture.assistant("parent_1", output: 500, [Fixture.tool("e1", "Edit", ["file_path": "/tmp/proj/parent.swift", "old_string": "a", "new_string": "b"])], at: Fixture.t0),
+            Fixture.result("e1", nil, at: Fixture.t0),
+            Fixture.assistant("own_1", output: 7, [Fixture.tool("e2", "Edit", ["file_path": "/tmp/proj/fork.swift", "old_string": "a", "new_string": "b"])], at: later),
+            Fixture.result("e2", nil, at: later),
+            Fixture.assistant("own_2", output: 3, [["type": "text", "text": "done"]], at: later),
+        ])
+        defer { try? FileManager.default.removeItem(at: url) }
+        let scanner = TranscriptScanner()
+        scanner.scan(url)
+        let facts = scanner.currentFacts
+        #expect(Set(facts.files.keys) == ["/tmp/proj/fork.swift"])
+        #expect(facts.toolCalls == 1)
+        #expect(facts.usage["claude-opus-5-5"]?.output == 10)   // own_1 and own_2, not the parent's 500
+        #expect(facts.startedAt == ScheduleScanner.parseDate(fork))
+    }
+
     @Test func extraRulesFindTheirLinks() {
         Fixture.installExampleRule()
         #expect(ArtifactLinks.find(in: "see https://claude.ai/code/artifact/3f1c0b9e-1234-4abc-9def-001122334455.").count == 1)
