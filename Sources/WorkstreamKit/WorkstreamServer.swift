@@ -464,7 +464,7 @@ public final class WorkstreamServer {
     }
 
     /// The answer buttons for an ask that came without options.
-    static let defaultAskOptions = ["Yes", "No", "Discuss"]
+    static let defaultAskOptions = Workstream.Ask.defaultAnswers
 
     private static func check(_ value: String, _ key: String, _ max: Int) throws {
         guard value.count > max else { return }

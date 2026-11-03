@@ -29,7 +29,7 @@ Then sections, each collapsible with a "last updated" time, shown when they have
 
 | Section | Shows |
 |---|---|
-| Waiting on you | Asks: a question and answer options (Yes, No and Discuss when the agent gives none). An open ask doesn't stop the agent. Answering types the option into the asking agent's chat with its question and id (`Answer to your question "Which seed?" (a3): Seed 1`). An ask can carry a default and a deadline ("defaults to Yes in 25m"); when the deadline passes unanswered, the app types the default as the answer, saying it was the default, once the agent is idle, and the file records `resolved_by: "default"`. ✕ dismisses one |
+| Waiting on you | Asks: a question and answer options (Yes, No and Discuss when the agent gives none, also for questions saved without options). An open ask doesn't stop the agent. Answering types the option into the asking agent's chat with its question and id (`Answer to your question "Which seed?" (a3): Seed 1`). An ask can carry a default and a deadline ("defaults to Yes in 25m"); when the deadline passes unanswered, the app types the default as the answer, saying it was the default, once the agent is idle, and the file records `resolved_by: "default"`. ✕ dismisses one |
 | FYI | Notes that need no answer, newest first, with their age; ✕ dismisses one. The newest 20 are kept |
 | Overview | What the work is for and where it stands |
 | Tickets | Tickets linked by you (**Link ticket**, or ⊕ to pick one of yours from a signed-in tracker) or by an agent (`link_ticket`). With a ticket provider for its tracker (the Linear extension, say), each shows its live state, priority and title; else its identifier and whatever title the file has. ✕ unlinks one |

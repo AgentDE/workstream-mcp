@@ -190,6 +190,15 @@ public struct Workstream: Codable, Equatable, Sendable {
         public var answer: String?
         public var resolvedAt: Date?
 
+        /// The answers to offer: its options, or for a question asked without any (servers before options were
+        /// filled in), Yes / No / Discuss with its default first.
+        public var answers: [String] {
+            guard options.isEmpty else { return options }
+            return (defaultOption.map { [$0] } ?? []) + Self.defaultAnswers.filter { $0 != defaultOption }
+        }
+
+        public static let defaultAnswers = ["Yes", "No", "Discuss"]
+
         public init(id: String, question: String, options: [String], asked: Date = Date(), agent: String? = nil,
                     defaultOption: String? = nil, decideBy: Date? = nil) {
             self.id = id

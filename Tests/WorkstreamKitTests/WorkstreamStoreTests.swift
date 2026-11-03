@@ -138,6 +138,14 @@ struct NativePlanTests {
 
 @Suite("Answering asks")
 struct AskReplyTests {
+    /// Questions saved without options (by servers from before they were filled in) still get buttons.
+    @Test func questionsWithoutOptionsOfferYesNoDiscuss() {
+        #expect(Workstream.Ask(id: "a1", question: "Ship?", options: []).answers == ["Yes", "No", "Discuss"])
+        #expect(Workstream.Ask(id: "a2", question: "Ship?", options: [], defaultOption: "No").answers == ["No", "Yes", "Discuss"])
+        #expect(Workstream.Ask(id: "a3", question: "Ship?", options: [], defaultOption: "Later").answers == ["Later", "Yes", "No", "Discuss"])
+        #expect(Workstream.Ask(id: "a4", question: "Which?", options: ["A", "B"]).answers == ["A", "B"])
+    }
+
     @Test func theAnswerCarriesItsQuestion() {
         let ask = Workstream.Ask(id: "a3", question: "Which seed\nshould I use?", options: ["Seed 1", "Seed 2"])
         #expect(ask.reply("Seed 1") == #"Answer to your question "Which seed should I use?" (a3): Seed 1"#)
