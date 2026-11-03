@@ -82,6 +82,22 @@ public final class WorkstreamStore: @unchecked Sendable {
         }
     }
 
+    /// Records which tab runs a session, as the files stand now: where some workstream lists the session (the
+    /// agent may have switched since the caller looked), only its tab is noted there; a session listed nowhere
+    /// joins `fallback`. An app's view of the files can be a moment old, so it never moves an agent itself.
+    /// Returns the workstream the session is in.
+    @discardableResult
+    public func adopt(session: String, kind: String, tab: String, fallback: String, folder: String? = nil) throws -> String {
+        guard let current = Self.sessionIndex(all())[session] else {
+            try moveAgent(session: session, kind: kind, tab: tab, to: fallback, folder: folder)
+            return fallback
+        }
+        if read(current)?.agents.first(where: { $0.session == session })?.tab != tab {
+            try update(current) { $0.attach(session: session, kind: kind, tab: tab) }
+        }
+        return current
+    }
+
     // MARK: Rules each agent session has received
 
     private var rulesSeenDirectory: URL { directory.appendingPathComponent(".rules-seen") }

@@ -6,6 +6,32 @@ import Testing
 struct WorkstreamStoreTests {
     let dir = FileManager.default.temporaryDirectory.appendingPathComponent("workstreams-\(UUID().uuidString)")
 
+    /// A fork starts in its parent's workstream and then starts its own (`new`). The app, working from an index
+    /// read before that, must record the fork's tab where the fork is now, not move it back.
+    @Test func anAppsLateAttachLeavesAnAgentThatSwitched() throws {
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let store = WorkstreamStore(directory: dir)
+        let parent = "11111111-1111-1111-1111-111111111111", fork = "22222222-2222-2222-2222-222222222222"
+        try store.moveAgent(session: parent, kind: "claude", tab: "TAB-P", to: "WS-PARENT")
+        try store.moveAgent(session: fork, kind: "claude", tab: nil, to: "WS-PARENT")   // the fork joins its parent's
+        try store.moveAgent(session: fork, kind: "claude", tab: nil, to: "WS-OWN")      // then starts its own
+
+        // The app had decided, from an index that didn't list the fork yet, that its tab belongs in WS-PARENT.
+        #expect(try store.adopt(session: fork, kind: "claude", tab: "TAB-F", fallback: "WS-PARENT") == "WS-OWN")
+        #expect(WorkstreamStore.sessionIndex(store.all())[fork] == "WS-OWN")
+        #expect(store.read("WS-OWN")?.agents.first?.tab == "TAB-F")
+        #expect(store.read("WS-PARENT")?.agents.map(\.session) == [parent])
+
+        // A session no workstream lists yet joins the fallback.
+        let fresh = "33333333-3333-3333-3333-333333333333"
+        #expect(try store.adopt(session: fresh, kind: "claude", tab: "TAB-N", fallback: "WS-PARENT") == "WS-PARENT")
+        #expect(store.read("WS-PARENT")?.agents.map(\.session) == [parent, fresh])
+
+        // What the app wrote before: moving the session outright undoes the agent's switch.
+        try store.moveAgent(session: fork, kind: "claude", tab: "TAB-F", to: "WS-PARENT")
+        #expect(WorkstreamStore.sessionIndex(store.all())[fork] == "WS-PARENT")
+    }
+
     @Test func roundTripsAndWritesAtomically() throws {
         defer { try? FileManager.default.removeItem(at: dir) }
         let store = WorkstreamStore(directory: dir)
