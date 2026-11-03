@@ -556,6 +556,21 @@ public final class WorkstreamServer {
         return summary.compact()
     }
 
+    /// For Claude's SubagentStart hook: the parent's workstream, so a sub-agent follows the same rules and knows
+    /// the same memory. The hook's `session_id` is the parent session's. Nothing outside the app, and nothing is
+    /// marked as seen: the parent still gets rule changes on its next turn.
+    public static func subagentContext(input: Data, environment: [String: String] = ProcessInfo.processInfo.environment,
+                                       cwd: String = FileManager.default.currentDirectoryPath) -> String {
+        let context = hookAgent(input: input, environment: environment, cwd: cwd)
+        guard context.enabled, let id = context.resolve(attach: false) else { return "" }
+        let text = "You're a sub-agent working for an agent on this workstream: follow its rules, and use its memory "
+            + "and overview as context. Leave the workstream itself (asks, progress, memory) to the agent you report to "
+            + "unless it asked you to update it.\n\n" + WorkstreamServer(context: context).summary(id, activity: false).compact()
+        let output = ["hookSpecificOutput": ["hookEventName": "SubagentStart", "additionalContext": text]]
+        guard let data = try? JSONSerialization.data(withJSONObject: output) else { return "" }
+        return String(decoding: data, as: UTF8.self)
+    }
+
     /// For Claude's UserPromptSubmit hook: the workstream's rules, only when they changed since this session
     /// last received them (or it switched workstreams), so edits reach running agents on their next turn. A session
     /// no hook has reached yet gets the instructions and the whole workstream instead.

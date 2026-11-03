@@ -409,6 +409,23 @@ struct WorkstreamHookTests {
                 .contains("empty so far"))
     }
 
+    @Test func subAgentsGetTheParentsWorkstreamWithoutMarkingRulesSeen() throws {
+        let box = Sandbox(); defer { box.cleanup() }
+        try box.store.update("WS-1") { w in
+            w.attach(session: Sandbox.session, kind: "claude")
+            w.addRule("Never push to main.", by: "you")
+            w.memory = .init(items: [.init(id: "m1", text: "The eval set lives in data/eval.", name: "eval-set")])
+        }
+        let output = WorkstreamServer.subagentContext(input: input(), environment: env(box), cwd: box.cwd)
+        let object = try #require(try JSONSerialization.jsonObject(with: Data(output.utf8)) as? [String: Any])
+        let hook = try #require(object["hookSpecificOutput"] as? [String: Any])
+        #expect(hook["hookEventName"] as? String == "SubagentStart")
+        let text = try #require(hook["additionalContext"] as? String)
+        #expect(text.contains("Never push to main.") && text.contains("data/eval"))
+        #expect(box.store.rulesSeen(session: Sandbox.session) == nil)   // the parent still gets rule changes
+        #expect(WorkstreamServer.subagentContext(input: input(), environment: [:], cwd: box.cwd).isEmpty)   // outside the app
+    }
+
     @Test func promptHookSendsRulesOnlyWhenTheyChanged() throws {
         let box = Sandbox(); defer { box.cleanup() }
         try box.store.update("WS-1") { w in

@@ -5,6 +5,8 @@ import WorkstreamKit
 // workstream-mcp context    Claude Code SessionStart hook: print the workstream (rules first)
 // workstream-mcp prompt-context
 //                           Claude Code UserPromptSubmit hook: print the rules when they changed
+// workstream-mcp subagent-context
+//                           Claude Code SubagentStart hook: the parent's workstream, as additionalContext JSON
 // workstream-mcp statusline -- <command…>
 //                           status line wrapper: save Claude's status JSON for the app's Stats, then run <command>
 // See docs/WORKSTREAMS.md.
@@ -16,6 +18,9 @@ case "context":
     if !text.isEmpty { print(text) }
 case "prompt-context":
     let text = WorkstreamServer.promptContext(input: FileHandle.standardInput.readDataToEndOfFile())
+    if !text.isEmpty { print(text) }
+case "subagent-context":
+    let text = WorkstreamServer.subagentContext(input: FileHandle.standardInput.readDataToEndOfFile())
     if !text.isEmpty { print(text) }
 case "statusline":
     // SIGPIPE from a status line reader that went away must not kill the wrapper before the command runs.
@@ -39,6 +44,6 @@ case nil:
     }
     dispatchMain()
 case let other?:
-    FileHandle.standardError.write(Data("usage: workstream-mcp [context | prompt-context | statusline -- <command>] (got \(other))\n".utf8))
+    FileHandle.standardError.write(Data("usage: workstream-mcp [context | prompt-context | subagent-context | statusline -- <command>] (got \(other))\n".utf8))
     exit(2)
 }
