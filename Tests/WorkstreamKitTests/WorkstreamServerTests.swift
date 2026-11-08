@@ -103,6 +103,25 @@ struct WorkstreamProtocolTests {
 
 @Suite("workstream MCP tools", .serialized)
 struct WorkstreamToolTests {
+    @Test func memoryStopsAtItsLimitButItemsCanStillBeUpdated() throws {
+        let box = Sandbox(); defer { box.cleanup() }
+        let server = box.server(box.context())
+        #expect(box.store.memoryLimit == 25)   // the default
+        try box.store.saveSettings(.init(memoryLimit: 2))
+        #expect(!call(server, "add_memory", ["name": "a", "text": "A."]).isError)
+        #expect(!call(server, "add_memory", ["name": "b", "text": "B."]).isError)
+        let refused = call(server, "add_memory", ["name": "c", "text": "C."])
+        #expect(refused.isError && refused.text.contains("Memory is full: 2 items, and the limit is 2.")
+                && refused.text.contains("- [m1] a") && refused.text.contains("notes file"))
+        #expect(box.store.read("WS-1")?.memory?.items.count == 2)
+        #expect(!call(server, "add_memory", ["name": "a", "text": "A, updated."]).isError)   // updating is fine
+        #expect(!call(server, "remove_entry", ["id": "m2"]).isError)
+        #expect(!call(server, "add_memory", ["name": "c", "text": "C."]).isError)
+        try box.store.saveSettings(.init(memoryLimit: 0))   // no limit
+        #expect(box.store.memoryLimit == nil && !call(server, "add_memory", ["name": "d", "text": "D."]).isError)
+        #expect(box.store.all().count == 1)   // the settings file isn't a workstream
+    }
+
     @Test func updatesEachSection() throws {
         let box = Sandbox(); defer { box.cleanup() }
         let server = box.server(box.context())

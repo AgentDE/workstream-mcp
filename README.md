@@ -15,7 +15,7 @@ Claude shows them as `mcp__workstream__<name>`.
 | `read_workstream(section?)` | The whole workstream, or one section |
 | `set_overview(text)` | Replaces the overview: what the work is for and where it stands |
 | `add_rule(text)` | Records a standing rule the user states |
-| `add_memory(name, text)` | Adds or updates a dated fact or decision a later agent will need |
+| `add_memory(name, text)` | Adds or updates a dated fact or decision a later agent will need; at most 25 items per workstream by default |
 | `set_progress(rows, merge?)` | Sets the caller's progress rows (label, optional 0–1 bar, text) |
 | `ask_user(question, options?, default?, decide_by? / in_minutes?, id?)` | Puts a question under Waiting on you without stopping; an optional default is taken when the deadline passes |
 | `tell_user(text)` | Adds an FYI note |

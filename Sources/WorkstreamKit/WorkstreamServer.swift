@@ -32,7 +32,8 @@ public final class WorkstreamServer {
     it would change what someone does next week. Leave out what the code, docs or git history already record, \
     one-off choices that are done with, and status (that's Progress). Give each a short name; reuse a name to \
     update its item. Whenever you add one, look over the others (add_memory lists them, with dates) and remove \
-    any that no longer hold or no longer matter.
+    any that no longer hold or no longer matter. Memory has a size limit (25 items unless the user set another): \
+    keep there only what nearly every session on this work needs, and put the rest in a notes file.
     - Progress (set_progress): a few rows for long-running work, with a bar when there's a fraction done. \
     Update it at milestones, or every few minutes during long runs; clear it when the work is done.
     - Waiting on you (ask_user): anything that's waiting on the user. Whatever you'd end a message with as \
@@ -172,6 +173,15 @@ public final class WorkstreamServer {
     /// How old a Memory item is before add_memory asks whether it still holds.
     static let reviewAge: TimeInterval = 3 * 86_400
 
+    /// Why a new Memory item was refused, with every item listed (oldest first) so the agent can pick what goes.
+    static func memoryFull(_ items: [Workstream.MemoryItem], limit: Int) -> String {
+        "Memory is full: \(items.count) items, and the limit is \(limit). Nothing was added. Memory is for what nearly "
+            + "every session on this work needs; anything else belongs in a notes file in the work's folder (pin it "
+            + "with pin_file if it's worth finding). Remove items with remove_entry until there's room, moving any "
+            + "still worth keeping to that file, or update an existing item by passing its name. The items:\n"
+            + items.map { "- [\($0.id)] \($0.line)" }.joined(separator: "\n")
+    }
+
     static func memoryReply(_ id: String, name: String, replaced: Bool, earlier: [Workstream.MemoryItem], now: Date = Date()) -> String {
         let done = "\(replaced ? "Updated" : "Remembered") \(id) (\(name))."
         // Only items that have sat a while, in full, so they can be judged; fresh ones are left alone.
@@ -237,6 +247,8 @@ public final class WorkstreamServer {
             var newID = ""
             var replaced = false
             var earlier: [Workstream.MemoryItem] = []
+            var full: [Workstream.MemoryItem]?
+            let limit = store.memoryLimit
             let now = self.now()
             try store.update(id) { w in
                 var items = w.memory?.items ?? []
@@ -253,6 +265,9 @@ public final class WorkstreamServer {
                     if byID != nil { label = items[i].name ?? label }
                     items[i].text = text
                     items[i].at = now
+                } else if let limit, items.count >= limit {
+                    full = items   // left unchanged; the error below lists them
+                    return
                 } else {
                     newID = w.newID("m", among: items.map(\.id))
                     items.append(Workstream.MemoryItem(id: newID, text: text, name: label, at: now))
@@ -260,6 +275,7 @@ public final class WorkstreamServer {
                 earlier = items.filter { $0.id != newID }
                 w.memory = Workstream.MemorySection(items: items, updated: now)
             }
+            if let full, let limit { throw ToolError(message: Self.memoryFull(full, limit: limit)) }
             return Self.memoryReply(newID, name: label, replaced: replaced, earlier: earlier, now: now)
         case "set_progress":
             guard let rows = args["rows"] as? [[String: Any]] else { throw ToolError(message: "`rows` is required.") }

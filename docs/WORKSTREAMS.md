@@ -133,7 +133,7 @@ Tools (Claude shows them as `mcp__workstream__<name>`):
 | `read_workstream(section?)` | The whole workstream, or one section: overview, tickets, rules, waiting, fyi, memory, progress, plan, scheduled, files, messages, artifacts, agents |
 | `set_overview(text)` | Replaces the overview |
 | `add_rule(text)` | Records a standing rule |
-| `add_memory(name, text)` | Adds a dated Memory item under a short name; an existing name, or an item's id (`m4`), updates its item. The reply lists items older than 3 days, to take back stale ones |
+| `add_memory(name, text)` | Adds a dated Memory item under a short name; an existing name, or an item's id (`m4`), updates its item. The reply lists items older than 3 days, to take back stale ones. A workstream holds at most 25 items (`memoryLimit` in the folder's `.settings.json`, set from AgentDE's Settings → Extensions → Workstreams; below 1 means no limit): past it, a new item is refused with every item listed, and the agent is told to remove some and keep the rest in a notes file. Updates still work |
 | `set_progress(rows, merge?)` | Replaces the caller's progress rows, keeps other agents'. With `merge`, only the rows sent change (by label) and empty text removes one |
 | `ask_user(question, options?, default?, decide_by? / in_minutes?, id?)` | Puts something under Waiting. With the `id` of an open ask, rewords it in place |
 | `tell_user(text)` | Adds an FYI note |

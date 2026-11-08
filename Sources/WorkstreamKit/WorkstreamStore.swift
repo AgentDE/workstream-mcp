@@ -17,6 +17,34 @@ public final class WorkstreamStore: @unchecked Sendable {
         self.directory = directory
     }
 
+    /// Settings for every workstream in the folder, in `.settings.json` (a dot-file, so it's never read as a
+    /// workstream). Read on each use, so a change reaches running servers at once.
+    public struct Settings: Codable, Equatable, Sendable {
+        /// The most Memory items a workstream holds; below 1 means no limit.
+        public var memoryLimit: Int?
+        public static let defaultMemoryLimit = 25
+        public init(memoryLimit: Int? = nil) { self.memoryLimit = memoryLimit }
+    }
+
+    public var settingsURL: URL { directory.appendingPathComponent(".settings.json") }
+
+    public func settings() -> Settings {
+        (try? Data(contentsOf: settingsURL)).flatMap { try? Self.decoder.decode(Settings.self, from: $0) } ?? Settings()
+    }
+
+    public func saveSettings(_ settings: Settings) throws {
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        try encoder.encode(settings).write(to: settingsURL, options: .atomic)
+    }
+
+    /// The Memory limit in force: the setting, else 25; nil when there's none.
+    public var memoryLimit: Int? {
+        let limit = settings().memoryLimit ?? Settings.defaultMemoryLimit
+        return limit > 0 ? limit : nil
+    }
+
     /// Workstream ids are UUIDs or similar: letters, digits and dashes only, so an id is always a file name.
     public static func isValidID(_ id: String) -> Bool {
         (1...64).contains(id.count) && id.allSatisfy { $0.isASCII && ($0.isLetter || $0.isNumber || $0 == "-") }
