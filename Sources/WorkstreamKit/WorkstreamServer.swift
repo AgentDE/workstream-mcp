@@ -152,10 +152,10 @@ public final class WorkstreamServer {
              properties: ["rows": ["type": "array", "maxItems": Limit.rows, "items": ["type": "object", "properties": ["label": text(Limit.label), "value": ["type": "number", "minimum": 0, "maximum": 1], "text": text(Limit.progressText)], "required": ["label", "text"]]],
                           "merge": ["type": "boolean"]],
              required: ["rows"]),
-        Tool(name: "ask_user", description: "Put something that's waiting on the user under Waiting, without stopping: a question or a request for them to do something. The options become answer buttons; give them for every ask (for a request, e.g. Done and Can't), since without them the buttons are Yes, No and Discuss. The answer arrives as a chat message; if the user answers in the chat instead, remove the ask with remove_entry. The question is at most \(Limit.question) characters; each option and the default at most \(Limit.option). With a default and decide_by (an ISO time, or in_minutes), the default is taken and sent to you if nobody answers in time. To change an open ask instead of adding another, pass its id. Returns its id.",
-             properties: ["id": text, "question": text(Limit.question), "options": ["type": "array", "items": text(Limit.option), "maxItems": 6], "default": text(Limit.option),
+        Tool(name: "ask_user", description: "Put something that's waiting on the user under Waiting, without stopping: a question or a request for them to do something. Options are required: 2 to 6 answer buttons that fit the question. For an either/or, the choices themselves; for a request, e.g. Done and Can't; Yes and No only for a real yes/no question. The user can always answer in the chat instead. The answer arrives as a chat message; if the user answers in the chat instead, remove the ask with remove_entry. The question is at most \(Limit.question) characters; each option and the default at most \(Limit.option). With a default and decide_by (an ISO time, or in_minutes), the default is taken and sent to you if nobody answers in time. To change an open ask instead of adding another, pass its id. Returns its id.",
+             properties: ["id": text, "question": text(Limit.question), "options": ["type": "array", "items": text(Limit.option), "minItems": 2, "maxItems": 6], "default": text(Limit.option),
                           "decide_by": ["type": "string", "description": "ISO 8601 time"], "in_minutes": ["type": "number", "minimum": 1]],
-             required: ["question"]),
+             required: ["question", "options"]),
         Tool(name: "tell_user", description: "Tell the user something they should know but needn't act on, in at most \(Limit.fyi) characters. Returns its id.", properties: ["text": text(Limit.fyi)], required: ["text"]),
         Tool(name: "pin_file", description: "Pin a file the user will want to open, with a note of at most \(Limit.note) characters (or update its note).",
              properties: ["path": text, "note": text(Limit.note)], required: ["path"]),
@@ -310,12 +310,15 @@ public final class WorkstreamServer {
             return mine == 0 ? "Progress cleared." : "Progress set (\(mine) row\(mine == 1 ? "" : "s") of yours)."
         case "ask_user":
             let question = try string("question", max: Limit.question)
-            var options = (args["options"] as? [String] ?? []).map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty }
-            let defaulted = options.isEmpty
-            // An ask with no buttons leaves the user typing into the chat; agents often forget them.
-            if defaulted { options = Self.defaultAskOptions }
+            let options = (args["options"] as? [String] ?? []).map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty }
+            let editing = ((args["id"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines)).flatMap { $0.isEmpty ? nil : $0 }
+            // Agents left out the buttons on most asks, leaving Yes / No / Discuss under either/or questions.
+            // Required for a new ask; an edit without them keeps the ones it had.
+            if options.count < 2, editing == nil || !options.isEmpty {
+                throw ToolError(message: "Give `options`: 2 to 6 answer buttons that fit the question. For an either/or, the choices "
+                    + "themselves; for a request, e.g. Done and Can't; Yes and No only for a real yes/no question.")
+            }
             let fallback = (args["default"] as? String).map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.flatMap { $0.isEmpty ? nil : $0 }
-            if defaulted, let fallback, !options.contains(fallback) { options.insert(fallback, at: 0) }
             for option in options + [fallback].compactMap({ $0 }) { try Self.check(option, "option", Limit.option) }
             var deadline: Date?
             if let minutes = (args["in_minutes"] as? NSNumber)?.doubleValue, minutes > 0 {
@@ -325,13 +328,12 @@ public final class WorkstreamServer {
                 deadline = date
             }
             if deadline != nil, fallback == nil { throw ToolError(message: "A deadline needs a default.") }
-            let editing = ((args["id"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines)).flatMap { $0.isEmpty ? nil : $0 }
             if let editing {
                 var found = false
                 try store.update(id) { w in
                     guard var asks = w.waiting?.asks, let i = asks.firstIndex(where: { $0.id == editing && $0.isOpen }) else { return }
                     asks[i].question = question
-                    asks[i].options = Array(options.prefix(6))
+                    if !options.isEmpty { asks[i].options = Array(options.prefix(6)) }
                     asks[i].defaultOption = fallback
                     asks[i].decideBy = deadline
                     w.waiting = Workstream.WaitingSection(asks: asks, updated: self.now())
@@ -348,7 +350,7 @@ public final class WorkstreamServer {
                                            agent: session, defaultOption: fallback, decideBy: deadline))
                 w.waiting = Workstream.WaitingSection(asks: asks, updated: self.now())
             }
-            return "Asked (\(newID))" + (defaulted ? " with the options " + options.joined(separator: " / ") : "")
+            return "Asked (\(newID))."
                 + ". The answer will arrive as a chat message. If the user answers in the chat instead, remove the ask with remove_entry."
         case "tell_user":
             let text = try string("text", max: Limit.fyi)

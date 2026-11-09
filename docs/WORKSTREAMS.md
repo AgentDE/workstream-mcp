@@ -23,13 +23,13 @@ These are AgentDE's names for what the panel is shown in.
 
 ## Workstream panel
 
-On top, the **workstream picker**: the active workstream's name with ▾. Its menu lists the group's workstreams (switching moves this agent from the old one's agents to the new one's), **New Workstream** and **Rename…**. A workstream's name defaults to its first agent's name until it's renamed.
+The panel shows the open session's own workstream: each agent tab gets one when it starts. There's no picker; an agent can join another, start a new one or rename it with `manage_workstreams` when you ask. A workstream's name defaults to its first agent's name.
 
 Then sections, each collapsible with a "last updated" time, shown when they have content:
 
 | Section | Shows |
 |---|---|
-| Waiting on you | Asks: a question and answer options (Yes, No and Discuss when the agent gives none, also for questions saved without options). An open ask doesn't stop the agent. Answering types the option into the asking agent's chat with its question and id (`Answer to your question "Which seed?" (a3): Seed 1`). An ask can carry a default and a deadline ("defaults to Yes in 25m"); when the deadline passes unanswered, the app types the default as the answer, saying it was the default, once the agent is idle, and the file records `resolved_by: "default"`. ✕ dismisses one |
+| Waiting on you | Asks: a question and its answer options (2 to 6, required for a new ask; questions saved without options get Yes, No and Discuss). An open ask doesn't stop the agent. Answering (a button, or a reply typed under it and sent with Return) types the answer into the asking agent's chat with its question and id (`Answer to your question "Which seed?" (a3): Seed 1`). An ask can carry a default and a deadline ("defaults to Yes in 25m"); when the deadline passes unanswered, the app types the default as the answer, saying it was the default, once the agent is idle, and the file records `resolved_by: "default"`. ✕ dismisses one |
 | FYI | Notes that need no answer, newest first, with their age; ✕ dismisses one. The newest 20 are kept |
 | Overview | What the work is for and where it stands |
 | Tickets | Tickets linked by you (**Link ticket**, or ⊕ to pick one of yours from a signed-in tracker) or by an agent (`link_ticket`). With a ticket provider for its tracker (the Linear extension, say), each shows its live state, priority and title; else its identifier and whatever title the file has. ✕ unlinks one |
@@ -105,7 +105,7 @@ One file per workstream: `~/.config/workstreams/<workstream id>.json` (`WORKSTRE
 |---|---|
 | Agents | A session is in exactly one workstream's `agents`; the session index (session → workstream) is the source of truth for a running agent, so when an agent switches through the server its tab follows. If a crash between two writes left a session in two, the later `added` wins. Files with the older `sessions: [{id, agent}]` still load |
 | Ids | In AgentDE each tab has an active workstream id, kept with the tab (`extensionData["workstreams.id"]`). New tabs get a fresh UUID; the tab's environment carries it as `WORKSTREAM_ID` beside `WORKSTREAM_TAB_ID`, a hint the server uses until the session is indexed |
-| Attaching | When a tab's Claude or Codex session appears or changes (a new agent, `/clear`, a resume) and no workstream lists it, it joins the tab's workstream (with the tab id and the group's folder). The app checks the files when it writes: a session some workstream already lists (an agent that switched, or a fork that started its own) only gets its tab noted there, never moved. Closing a tab detaches its agent (its open asks go); the workstream stays, listed in the picker |
+| Attaching | When a tab's Claude or Codex session appears or changes (a new agent, `/clear`, a resume) and no workstream lists it, it joins the tab's workstream (with the tab id and the group's folder). The app checks the files when it writes: a session some workstream already lists (an agent that switched, or a fork that started its own) only gets its tab noted there, never moved. Closing a tab detaches its agent (its open asks go); the workstream stays, and an agent can rejoin it with `manage_workstreams` |
 | Leaving and coming back | Closing a tab detaches its agent and records the session in `former`. When that session is resumed in another tab, it rejoins that workstream, and the new tab switches to it. Switching workstreams on purpose isn't leaving, so it records nothing |
 | Item ids | `m`, `a`, `f`, `r` ids are never reused: `lastIDs` keeps the highest number each prefix has used |
 | Asks | Answered asks stay with `resolved_by` (`you`, `agent`, `default`), `answer` and `resolved_at`; the 10 newest answered ones are kept. When an agent's session ends (three registry polls without it), its open asks are cleared. Moving an agent to another workstream leaves its asks where they were asked |
@@ -136,7 +136,7 @@ Tools (Claude shows them as `mcp__workstream__<name>`):
 | `add_rule(text)` | Records a standing rule |
 | `add_memory(name, text)` | Adds a dated Memory item under a short name; an existing name, or an item's id (`m4`), updates its item. The reply lists items older than 3 days, to take back stale ones. A workstream holds at most 25 items (`memoryLimit` in the folder's `.settings.json`, set from AgentDE's Settings → Extensions → Workstreams; below 1 means no limit): past it, a new item is refused with every item listed, and the agent is told to remove some and keep the rest in a notes file. Updates still work |
 | `set_progress(rows, merge?)` | Replaces the caller's progress rows, keeps other agents'. With `merge`, only the rows sent change (by label) and empty text removes one |
-| `ask_user(question, options?, default?, decide_by? / in_minutes?, id?)` | Puts something under Waiting. With the `id` of an open ask, rewords it in place |
+| `ask_user(question, options, default?, decide_by? / in_minutes?, id?)` | Puts something under Waiting, with 2 to 6 answer buttons that fit the question (the server refuses a new ask without them). With the `id` of an open ask, rewords it in place, keeping its options unless new ones are given |
 | `tell_user(text)` | Adds an FYI note |
 | `pin_file(path, note?)` | Pins a file, or updates its note |
 | `link_ticket(ticket, title?)` | Links a ticket in any tracker: a key (`ENG-123`), `owner/repo#12`, or a link |

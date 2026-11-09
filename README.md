@@ -17,7 +17,7 @@ Claude shows them as `mcp__workstream__<name>`.
 | `add_rule(text)` | Records a standing rule the user states |
 | `add_memory(name, text)` | Adds or updates a dated fact or decision a later agent will need; at most 25 items per workstream by default |
 | `set_progress(rows, merge?)` | Sets the caller's progress rows (label, optional 0–1 bar, text) |
-| `ask_user(question, options?, default?, decide_by? / in_minutes?, id?)` | Puts a question under Waiting on you without stopping; an optional default is taken when the deadline passes |
+| `ask_user(question, options, default?, decide_by? / in_minutes?, id?)` | Puts a question under Waiting on you without stopping, with 2 to 6 answer buttons (required); an optional default is taken when the deadline passes |
 | `tell_user(text)` | Adds an FYI note |
 | `pin_file(path, note?)` | Pins a file with a note |
 | `link_ticket(ticket, title?)` | Links a ticket in any tracker: `ENG-123`, `acme/app#12`, or a link |
