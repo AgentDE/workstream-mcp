@@ -41,7 +41,7 @@ Then sections, each collapsible with a "last updated" time, shown when they have
 | Plan | The agent's own to-do list, from where Claude Code keeps it (`~/.claude/tasks/<session id>/*.json`); other attached agents' lists follow, folded. A bar shows the share done; only the last 5 done steps are listed |
 | Scheduled | What the attached agents scheduled with Claude Code's own tools, soonest first: "in 40m · 14:20" or "Every hour at :13 · next 14:13" |
 | Files | **Pinned** (by agents and you, with notes; ◇ Pin / ◆ Pinned in the viewer), **Recent** (edited by the attached agents, newest first, 8) and **High activity** (edited and read most, 5, with the count). A file appears once, in the first subsection that has it; a pinned file that's gone is struck through and marked missing |
-| Artifacts | Claude artifacts the attached agents published (the `Artifact` tool's publish results, with their titles), artifact links in their own messages, links the app's link rules claim (an extension's artifact pages, including ones tools printed), and local HTML pages they named by absolute or `~` path (while the file exists). Each is listed once, in its canonical form. Click to open it in the viewer |
+| Artifacts | Claude artifacts the attached agents published (the `Artifact` tool's publish results, with their titles), artifact links in their own messages, links the app's link rules claim (an extension's artifact pages, including ones tools printed), and local HTML pages they named by absolute or `~` path (while the file exists). Each is listed once, in its canonical form. Click to open it in the viewer; pin one with right-click → Pin, or ◇ Pin in the viewer while it's open |
 | Stats | Folded; for the agent in the tab. From the transcript: cost (≈, from a price table), wall time and time in turns, tokens by model, cache hit rate, lines added and removed, files edited, tool calls, compactions; "Now": context used and the 5-hour and 7-day limits. With the status-line feed (below), Claude's own figures replace the estimates. With two or more agents, a total line |
 
 Nothing in the panel explains itself; every word is the workstream's content or a timestamp.
@@ -78,7 +78,7 @@ Its state saves as a snapshot in `~/Library/Caches/workstreams/transcripts/<sess
 
 One file per workstream: `~/.config/workstreams/<workstream id>.json` (`WORKSTREAM_DIR` overrides; an AgentDE test instance with `AGENTDE_STATE` uses `workstreams/` beside its state file and passes it to its tabs as `WORKSTREAM_DIR`). Writes are atomic (temp file + rename) under a per-workstream lock file (`.<id>.lock`), so the app and the MCP server can both write.
 
-```json
+```jsonc
 {
   "version": 1,
   "id": "6F1C0B9E-…",
@@ -166,15 +166,16 @@ Everything agents write is short by design. Longer text is refused with an error
 |---|---|---|
 | SessionStart (matcher `startup\|resume\|compact`) | `workstream-mcp context` | The workstream as Markdown, within about 6 KB (~1,500 tokens): name and working folder, then Rules, Overview, open asks, Memory, Progress, Plan, Scheduled, Files, and the 5 newest FYI notes; a long list ends with "(+N more; read_workstream section <name> for all)". Records that the session has seen the current rules |
 | UserPromptSubmit | `workstream-mcp prompt-context` | The rules, only when they changed since the session last received them (or it switched workstreams), so a rule you add reaches running agents on their next turn. Per-session state is `<workstreams dir>/.rules-seen/<session id>` |
+| SubagentStart | `workstream-mcp subagent-context` | The parent session's workstream (the same Markdown as SessionStart) as `additionalContext` JSON, after a note that the sub-agent follows its rules and leaves the workstream to its parent. Marks nothing as seen |
 
-Both print nothing for sessions the server isn't active for. The compaction context leaves out Messages, Artifacts and Recent files, to stay small and fast; `read_workstream` has them.
+All three print nothing for sessions the server isn't active for. The compaction context leaves out Messages, Artifacts and Recent files, to stay small and fast; `read_workstream` has them.
 
 ## Registration
 
 AgentDE's `scripts/register-workstream.sh` (`make register-workstream` in the `agentde` repo) shows what it would change; `--yes` (`YES=1`) applies; `--uninstall` removes what it added. `WORKSTREAM_APP=/path/to/App.app` picks the app whose bundled server to register (default: the installed AgentDE). It:
 
 - runs `claude mcp add --scope user workstream -- <app>/Contents/MacOS/workstream-mcp`;
-- adds `mcp__workstream__*` to `permissions.allow` in `~/.claude/settings.json`, plus the SessionStart and UserPromptSubmit hooks, keeping existing hooks (a backup is written beside the file);
+- adds `mcp__workstream__*` to `permissions.allow` in `~/.claude/settings.json`, plus the SessionStart, UserPromptSubmit and SubagentStart hooks, keeping existing hooks (a backup is written beside the file);
 - wraps an existing command status line in `workstream-mcp statusline -- '<command>'` (uninstalling restores the original; a status line that isn't a command is left alone);
 - adds `[mcp_servers.workstream]` to `~/.codex/config.toml`.
 

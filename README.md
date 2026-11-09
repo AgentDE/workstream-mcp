@@ -34,6 +34,7 @@ Text fields have short limits (a 400-character overview, 280-character questions
 | `workstream-mcp` | Serves MCP on stdin/stdout |
 | `workstream-mcp context` | Claude Code SessionStart hook: prints the workstream, rules first |
 | `workstream-mcp prompt-context` | Claude Code UserPromptSubmit hook: prints the rules when they changed |
+| `workstream-mcp subagent-context` | Claude Code SubagentStart hook: gives a sub-agent its parent's workstream (rules, memory, overview) |
 | `workstream-mcp statusline -- <command…>` | Status line wrapper: saves Claude's status JSON (for cost and context figures), then runs your command with the same input |
 
 ## Environment
@@ -58,14 +59,16 @@ BIN=$PWD/.build/release/workstream-mcp
 claude mcp add --scope user workstream -e WORKSTREAM_EVERYWHERE=1 -- "$BIN"
 ```
 
-For the context to come back after compactions, add the hooks to `~/.claude/settings.json`, with the same variable:
+For the context to come back after compactions and reach sub-agents, add the hooks to `~/.claude/settings.json`, with the same variable, and allow the tools so their calls don't prompt:
 
 ```json
 {
+  "permissions": { "allow": ["mcp__workstream__*"] },
   "hooks": {
     "SessionStart": [{ "matcher": "startup|resume|compact",
                        "hooks": [{ "type": "command", "command": "WORKSTREAM_EVERYWHERE=1 /path/to/workstream-mcp context" }] }],
-    "UserPromptSubmit": [{ "hooks": [{ "type": "command", "command": "WORKSTREAM_EVERYWHERE=1 /path/to/workstream-mcp prompt-context" }] }]
+    "UserPromptSubmit": [{ "hooks": [{ "type": "command", "command": "WORKSTREAM_EVERYWHERE=1 /path/to/workstream-mcp prompt-context" }] }],
+    "SubagentStart": [{ "hooks": [{ "type": "command", "command": "WORKSTREAM_EVERYWHERE=1 /path/to/workstream-mcp subagent-context" }] }]
   }
 }
 ```
@@ -83,7 +86,7 @@ The package has two products: the `WorkstreamKit` library (file format, store, r
 
 ## Registering with an app
 
-When an app bundles the server (`<App>.app/Contents/MacOS/workstream-mcp`), AgentDE's `scripts/register-workstream.sh` registers it for Claude Code and Codex: the MCP server, an allow rule for its tools, both hooks, and the status-line wrapper. It prints the changes first; `--yes` applies them and `--uninstall` takes them back. `WORKSTREAM_APP=/Applications/Some.app` picks the app (default: the installed AgentDE). Details: [docs/WORKSTREAMS.md](docs/WORKSTREAMS.md#registration).
+When an app bundles the server (`<App>.app/Contents/MacOS/workstream-mcp`), AgentDE's `scripts/register-workstream.sh` registers it for Claude Code and Codex: the MCP server, an allow rule for its tools, its three hooks, and the status-line wrapper. It prints the changes first; `--yes` applies them and `--uninstall` takes them back. `WORKSTREAM_APP=/Applications/Some.app` picks the app (default: the installed AgentDE). Details: [docs/WORKSTREAMS.md](docs/WORKSTREAMS.md#registration).
 
 ## License
 
