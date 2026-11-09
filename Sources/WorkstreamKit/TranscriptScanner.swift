@@ -799,6 +799,7 @@ public struct WorkstreamActivity: Sendable {
     public struct AgentArtifact: Equatable, Sendable {
         public var agent: String
         public var artifact: TranscriptFacts.Artifact
+        public init(agent: String, artifact: TranscriptFacts.Artifact) { self.agent = agent; self.artifact = artifact }
     }
 
     public let perAgent: [(agent: String, facts: TranscriptFacts)]

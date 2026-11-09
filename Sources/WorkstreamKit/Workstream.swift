@@ -19,6 +19,9 @@ public struct Workstream: Codable, Equatable, Sendable {
     public var waiting: WaitingSection?
     public var fyi: FYISection?
     public var files: FilesSection?
+    /// Artifacts (pages, links) pinned in the app's panel. Only the app writes these; agents' artifacts come
+    /// from their transcripts.
+    public var pinnedArtifacts: PinnedArtifactsSection?
     public var tickets: TicketsSection?
     /// Agent sessions that left when their tab closed. Resuming one brings it back here, not to a new workstream.
     public var former: [String]?
@@ -307,6 +310,13 @@ public struct Workstream: Codable, Equatable, Sendable {
         public init(items: [FileItem], updated: Date = Date()) { self.items = items; self.updated = updated }
     }
 
+    public struct PinnedArtifactsSection: Codable, Equatable, Sendable {
+        /// Newest pin first.
+        public var items: [TranscriptFacts.Artifact]
+        public var updated: Date
+        public init(items: [TranscriptFacts.Artifact], updated: Date = Date()) { self.items = items; self.updated = updated }
+    }
+
     /// A ticket this work is for, in any tracker (Linear, Jira, GitHub, GitLab, or just a link). Its title and link
     /// are kept when known; a ticket provider in the app can look up its state live.
     public struct Ticket: Codable, Equatable, Sendable {
@@ -524,6 +534,17 @@ public struct Workstream: Codable, Equatable, Sendable {
         files = items.isEmpty ? nil : FilesSection(items: items, updated: date)
     }
 
+    /// Pins an artifact (by its link or path) at the top of Artifacts, or unpins it when it's already there.
+    public mutating func togglePinnedArtifact(_ artifact: TranscriptFacts.Artifact, at date: Date = Date()) {
+        var items = pinnedArtifacts?.items ?? []
+        if let index = items.firstIndex(where: { $0.url == artifact.url }) {
+            items.remove(at: index)
+        } else {
+            items.insert(artifact, at: 0)
+        }
+        pinnedArtifacts = items.isEmpty ? nil : PinnedArtifactsSection(items: items, updated: date)
+    }
+
     /// The most FYI notes kept; older ones drop off.
     public static let fyiLimit = 20
 
@@ -620,7 +641,7 @@ public struct Workstream: Codable, Equatable, Sendable {
     public var hasContent: Bool {
         overview != nil || !activeRules.isEmpty || !(memory?.items.isEmpty ?? true) || !(progress?.rows.isEmpty ?? true)
             || !openAsks.isEmpty || !(fyi?.items.isEmpty ?? true)
-            || !(files?.items.isEmpty ?? true)
+            || !(files?.items.isEmpty ?? true) || !(pinnedArtifacts?.items.isEmpty ?? true)
     }
 
     /// A new id with this prefix, past every one used before (even removed ones), and records it.

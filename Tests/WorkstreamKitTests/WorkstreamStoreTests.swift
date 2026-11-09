@@ -128,6 +128,16 @@ struct WorkstreamStoreTests {
         workstream.togglePinned("/tmp/plot.png", by: "you")
         #expect(workstream.files == nil)
         #expect(!workstream.hasContent)
+        // Artifacts pin newest first; pinning again unpins.
+        let page = TranscriptFacts.Artifact(url: "https://example.com/a", title: "A", at: Date())
+        let other = TranscriptFacts.Artifact(url: "https://example.com/b", title: "B", at: Date())
+        workstream.togglePinnedArtifact(page)
+        workstream.togglePinnedArtifact(other)
+        #expect(workstream.pinnedArtifacts?.items.map(\.url) == ["https://example.com/b", "https://example.com/a"])
+        #expect(workstream.hasContent)
+        workstream.togglePinnedArtifact(other)
+        workstream.togglePinnedArtifact(page)
+        #expect(workstream.pinnedArtifacts == nil && !workstream.hasContent)
     }
 
     /// Dates survive encoding to whole seconds.

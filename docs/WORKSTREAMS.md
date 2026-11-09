@@ -94,6 +94,7 @@ One file per workstream: `~/.config/workstreams/<workstream id>.json` (`WORKSTRE
                            "resolved_by": "default", "answer": "Seed 1", "resolved_at": "…" }], "updated": "…" },
   "fyi":      { "items": [{ "id": "f1", "text": "Pod relaunched; no data lost.", "agent": "…", "at": "…" }], "updated": "…" },
   "files":    { "items": [{ "path": "/abs/path", "note": "…", "by": "agent|you" }], "updated": "…" },
+  "pinnedArtifacts": { "items": [{ "url": "https://…", "title": "…", "at": "…" }], "updated": "…" },   // pinned in the app only
   "tickets":  { "items": [{ "identifier": "ENG-123", "title": "…", "url": "https://…", "tracker": "linear", "by": "agent|you", "at": "…" }], "updated": "…" },
   "former":   ["9c11ec68-…"],
   "lastIDs":  { "m": 12, "a": 4, "f": 2, "r": 3 }
