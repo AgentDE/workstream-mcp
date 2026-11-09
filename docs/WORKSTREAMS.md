@@ -121,7 +121,7 @@ JSON-RPC 2.0 over stdio, one message per line. By default it's active only for a
 
 1. The calling session (`CLAUDE_CODE_SESSION_ID`, which Claude sets for the MCP servers it starts; or `CODEX_SESSION_ID`/`CODEX_THREAD_ID`) in the session index → that workstream.
 2. A session listed in a workstream's `former` (resumed after its tab closed) → that workstream, which it rejoins.
-3. A fork (a background session whose job record has `forkParentSessionId`) → its parent's workstream, which it joins.
+3. A fork (a background session whose job record has `forkParentSessionId`, or a tab from right-click → Fork Session) → a new workstream of its own, starting with a copy of its parent's overview, rules and memory.
 4. Not a background session, with `WORKSTREAM_ID` → that workstream, which it joins (creating the file if needed, with the folder).
 5. `WORKSTREAM_EVERYWHERE=1` → a new workstream for the session.
 
@@ -183,7 +183,7 @@ AgentDE's `scripts/register-workstream.sh` (`make register-workstream` in the `a
 
 ## Agents and forks
 
-Forks and helper background sessions are new agents (tabs, through AgentDE's background-session adoption). A fork joins the workstream of the agent it came from: its job record (`~/.claude/jobs/<job>/state.json`) has `forkParentSessionId`. Any other background session gets a new workstream: Claude records no parent for a plain `claude --bg`.
+Forks and helper background sessions are new agents (tabs, through AgentDE's background-session adoption). A fork gets a workstream of its own, starting with a copy of its parent's overview, rules and memory (not its asks, progress or messages). For `/fork`, the parent comes from the job record (`~/.claude/jobs/<job>/state.json`, `forkParentSessionId`); for right-click → Fork Session, from the tab it was forked from. Any other background session gets a new, empty workstream: Claude records no parent for a plain `claude --bg`.
 
 ## Notes
 
