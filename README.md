@@ -13,7 +13,7 @@ Claude shows them as `mcp__workstream__<name>`.
 | Tool | Does |
 |---|---|
 | `read_workstream(section?)` | The whole workstream, or one section |
-| `set_overview(text)` | Replaces the overview: what the work is for and where it stands |
+| `set_overview(goal, status)` | Replaces the overview: the goal (at most 120 characters) and where it stands (at most 280), shown as "Goal: …" and "Status: …" |
 | `add_rule(text)` | Records a standing rule the user states |
 | `add_memory(name, text)` | Adds or updates a dated fact or decision a later agent will need; at most 25 items per workstream by default |
 | `set_progress(rows, merge?)` | Sets the caller's progress rows (label, optional 0–1 bar, text) |

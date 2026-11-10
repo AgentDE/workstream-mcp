@@ -21,10 +21,11 @@ public final class WorkstreamServer {
     This agent is attached to an the app workstream: the shared record of this work that the user sees beside \
     the chat, and that comes back after every compaction and resume. Keeping it current is part of the job: \
     whenever the conversation changes what a section should say, update it then, without being asked. Each \
-    entry is read at a glance and has a character limit, like a tweet (400 for the overview and memory, 280 for \
+    entry is read at a glance and has a character limit, like a tweet (400 for memory, 120 and 280 for the overview's goal and status, 280 for \
     FYI and questions; each tool gives its limits). Longer text is refused, so write it short the first time.
-    - Overview (set_overview): what this work is for and where it stands. Set it at the start, and again when \
-    the goal or the state changes.
+    - Overview (set_overview): two short lines, the goal (what this work is for, one sentence) and the status \
+    (where it stands now, one or two sentences). Set it at the start, and update the status when it changes. \
+    Details belong elsewhere: decisions in Memory, steps in Progress, news in FYI.
     - Rules (add_rule): standing instructions the user gives ("never push to main"). Record each one when \
     it's stated, and follow all of them.
     - Memory (add_memory): what a later agent on this work needs and couldn't easily find: decisions and their \
@@ -131,7 +132,7 @@ public final class WorkstreamServer {
     /// Character limits for what agents write, so every section stays a glance. The schema states them and
     /// `call` rejects longer text, asking for a shorter version rather than cutting it off.
     enum Limit {
-        static let overview = 400, memory = 400, fyi = 280, question = 280, rule = 200, memoryName = 40
+        static let goal = 120, status = 280, memory = 400, fyi = 280, question = 280, rule = 200, memoryName = 40
         static let progressText = 140, note = 140, option = 60, name = 60, label = 32, rows = 6
     }
 
@@ -142,8 +143,8 @@ public final class WorkstreamServer {
     static let tools: [Tool] = [
         Tool(name: "read_workstream", description: "The workstream: all of it, or one section. It's already in your context at session start and after compaction, so you rarely need this.",
              properties: ["section": ["type": "string", "enum": sections]], required: []),
-        Tool(name: "set_overview", description: "Replace the overview: what this work is for and where it stands, in at most \(Limit.overview) characters.",
-             properties: ["text": text(Limit.overview)], required: ["text"]),
+        Tool(name: "set_overview", description: "Replace the overview: the goal (what this work is for, one sentence, at most \(Limit.goal) characters) and the status (where it stands now, at most \(Limit.status)). Shown as \"Goal: …\" and \"Status: …\".",
+             properties: ["goal": text(Limit.goal), "status": text(Limit.status)], required: ["goal", "status"]),
         Tool(name: "add_rule", description: "Record a standing rule the user states, for every agent in this workstream to follow: one rule, at most \(Limit.rule) characters. Returns its id.",
              properties: ["text": text(Limit.rule)], required: ["text"]),
         Tool(name: "add_memory", description: "Add one fact or decision a later agent on this work will need (one that would change what it does, and that the code, docs or git history don't already record): a short name (at most \(Limit.memoryName) characters, like linear-account) and the text (at most \(Limit.memory)). It's dated. Using an existing name, or an item's id (m4) as the name, updates that item in place, keeping its id. Returns its id and lists the other items, to remove any that no longer hold.",
@@ -228,7 +229,8 @@ public final class WorkstreamServer {
             default: throw ToolError(message: "No section \(section). Sections: \(Self.sections.joined(separator: ", ")).")
             }
         case "set_overview":
-            let text = try string("text", max: Limit.overview)
+            let goal = try string("goal", max: Limit.goal), status = try string("status", max: Limit.status)
+            let text = "Goal: \(goal)\nStatus: \(status)"
             try store.update(id) { $0.overview = Workstream.TextSection(text: text, updated: self.now()) }
             return "Overview set."
         case "add_rule":

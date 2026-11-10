@@ -125,7 +125,7 @@ struct WorkstreamToolTests {
     @Test func updatesEachSection() throws {
         let box = Sandbox(); defer { box.cleanup() }
         let server = box.server(box.context())
-        #expect(call(server, "set_overview", ["text": "Train the no-text arm."]).text == "Overview set.")
+        #expect(call(server, "set_overview", ["goal": "Train the no-text arm.", "status": "Starting."]).text == "Overview set.")
         #expect(call(server, "add_memory", ["name": "backup-volume", "text": "Data isn't on the backup volume."]).text == "Remembered m1 (backup-volume).")
         // Without a name (a session with the old schema), one is made from the text, and it never overwrites.
         #expect(call(server, "add_memory", ["text": "Data isn't on the backup volume, again."]).text.hasPrefix("Remembered m2 (data-isnt-on-the)."))
@@ -149,7 +149,7 @@ struct WorkstreamToolTests {
         try "x".write(toFile: box.cwd + "/REPORT.md", atomically: true, encoding: .utf8)
         _ = call(server, "pin_file", ["path": "REPORT.md", "note": "training plan"])
         let w = try #require(box.store.read("WS-1"))
-        #expect(w.overview?.text == "Train the no-text arm.")
+        #expect(w.overview?.text == "Goal: Train the no-text arm.\nStatus: Starting.")
         #expect(w.memory?.items.map(\.id) == ["m4"])
         #expect(w.progress?.rows.map(\.label) == ["campaign", "backups"])
         #expect(w.progress?.rows.first?.agent == Sandbox.session)
@@ -174,18 +174,20 @@ struct WorkstreamToolTests {
     @Test func longTextIsRefusedNotCut() throws {
         let box = Sandbox(); defer { box.cleanup() }
         let server = box.server(box.context())
-        let long = String(repeating: "x", count: 401)
-        let refused = call(server, "set_overview", ["text": long])
+        let long = String(repeating: "x", count: 281)
+        let refused = call(server, "set_overview", ["goal": "Ship it.", "status": long])
         #expect(refused.isError)
-        #expect(refused.text.contains("401 characters, 1 over the limit of 400"))
+        #expect(refused.text.contains("281 characters, 1 over the limit of 280"))
         #expect(box.store.read("WS-1")?.overview == nil)
-        #expect(!call(server, "set_overview", ["text": String(long.dropLast())]).isError)
+        #expect(!call(server, "set_overview", ["goal": "Ship it.", "status": String(long.dropLast())]).isError)
+        #expect(box.store.read("WS-1")?.overview?.text.hasPrefix("Goal: Ship it.\nStatus: xxx") == true)
+        #expect(call(server, "set_overview", ["goal": "Only a goal."]).isError)
         #expect(call(server, "set_progress", ["rows": [["label": "a", "text": String(repeating: "y", count: 141)]]]).isError)
         #expect(call(server, "ask_user", ["question": "Ship?", "options": ["yes", String(repeating: "z", count: 61)]]).isError)
         let tools = (rpc(server, ["jsonrpc": "2.0", "id": 2, "method": "tools/list"])?["result"] as? [String: Any])?["tools"] as? [[String: Any]]
         let overview = tools?.first { $0["name"] as? String == "set_overview" }
-        let text = ((overview?["inputSchema"] as? [String: Any])?["properties"] as? [String: Any])?["text"] as? [String: Any]
-        #expect(text?["maxLength"] as? Int == 400)
+        let status = ((overview?["inputSchema"] as? [String: Any])?["properties"] as? [String: Any])?["status"] as? [String: Any]
+        #expect(status?["maxLength"] as? Int == 280)
     }
 
     /// add_memory asks about items older than a few days only, and shows them in full.
@@ -333,7 +335,7 @@ struct WorkstreamToolTests {
     @Test func switchesAndStartsWorkstreams() throws {
         let box = Sandbox(); defer { box.cleanup() }
         let server = box.server(box.context())
-        _ = call(server, "set_overview", ["text": "first"])
+        _ = call(server, "set_overview", ["goal": "first", "status": "now"])
         let started = call(server, "manage_workstreams", ["action": "new", "name": "Seed sweep"])
         #expect(started.text.hasPrefix("Started Seed sweep"))
         let index = WorkstreamStore.sessionIndex(box.store.all())
@@ -347,7 +349,7 @@ struct WorkstreamToolTests {
         #expect(listed.contains("Seed sweep") && listed.contains("WS-1"))
         _ = call(server, "manage_workstreams", ["action": "switch", "id": "WS-1"])
         #expect(WorkstreamStore.sessionIndex(box.store.all())[Sandbox.session] == "WS-1")
-        #expect(call(server, "read_workstream", ["section": "overview"]).text.hasPrefix("first"))
+        #expect(call(server, "read_workstream", ["section": "overview"]).text.contains("Goal: first"))
         _ = call(server, "manage_workstreams", ["action": "rename", "name": "Main"])
         #expect(box.store.read("WS-1")?.name == "Main")
         #expect(call(server, "manage_workstreams", ["action": "switch", "id": "nope"]).isError)
