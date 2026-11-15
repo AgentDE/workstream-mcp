@@ -15,6 +15,9 @@ public enum StatusLineFeed {
         public var contextUsedPercent: Double?
         public var contextWindow: Int?
         public var model: String?
+        /// Claude's 5-hour and 7-day limits used, 0–100 (account-wide, so any session's latest is current).
+        public var fiveHourUsedPercent: Double?
+        public var sevenDayUsedPercent: Double?
         public var updated: Date
     }
 
@@ -51,6 +54,7 @@ public enum StatusLineFeed {
         let cost = object["cost"] as? [String: Any]
         let context = object["context_window"] as? [String: Any]
         let model = object["model"] as? [String: Any]
+        let limits = object["rate_limits"] as? [String: Any]
         return Status(costUSD: number(cost, "total_cost_usd"),
                       durationSeconds: number(cost, "total_duration_ms").map { $0 / 1000 },
                       apiDurationSeconds: number(cost, "total_api_duration_ms").map { $0 / 1000 },
@@ -59,7 +63,25 @@ public enum StatusLineFeed {
                       contextUsedPercent: number(context, "used_percentage"),
                       contextWindow: number(context, "context_window_size").map { Int($0) },
                       model: (model?["id"] as? String) ?? (model?["display_name"] as? String),
+                      fiveHourUsedPercent: number(limits?["five_hour"] as? [String: Any], "used_percentage"),
+                      sevenDayUsedPercent: number(limits?["seven_day"] as? [String: Any], "used_percentage"),
                       updated: updated)
+    }
+
+    /// The newest saved status that reports rate limits: the limits are the account's, whichever session sent them.
+    public static func latestRateLimits(directory: URL = TranscriptCache.directory()) -> Status? {
+        let folder = directory.appendingPathComponent("statusline")
+        let files = (try? FileManager.default.contentsOfDirectory(at: folder, includingPropertiesForKeys: [.contentModificationDateKey])) ?? []
+        let newest = files.filter { $0.pathExtension == "json" }.map { url in
+            (url, (try? url.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate ?? .distantPast)
+        }.sorted { $0.1 > $1.1 }
+        for (url, modified) in newest.prefix(20) {
+            guard let data = try? Data(contentsOf: url),
+                  let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { continue }
+            let status = parse(object, updated: modified)
+            if status.fiveHourUsedPercent != nil || status.sevenDayUsedPercent != nil { return status }
+        }
+        return nil
     }
 
     /// The wrapper: saves `input`, then runs `command` with it. One argument is a shell command line (run with
