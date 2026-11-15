@@ -800,6 +800,8 @@ public struct WorkstreamActivity: Sendable {
         public var lastEdit: Date?
         public var count: Int
         public var agents: [String]
+        /// When an agent last read or edited it.
+        public var lastTouch: Date?
     }
 
     public struct AgentMessage: Equatable, Sendable {
@@ -846,6 +848,30 @@ public struct WorkstreamActivity: Sendable {
             }
         }
         return Array(byPath.values.filter { $0.count > 1 }.sorted { ($0.count, $0.path) > ($1.count, $1.path) }.prefix(limit))
+    }
+
+    /// Every file the agents read or edited, once per path: `count` is reads plus edits, `lastTouch` the latest
+    /// of either. Unordered.
+    public func allFiles() -> [File] {
+        var byPath: [String: File] = [:]
+        for (agent, facts) in perAgent {
+            for file in facts.files.values {
+                var merged = byPath[file.path] ?? File(path: file.path, lastEdit: nil, count: 0, agents: [])
+                merged.count += file.edits + file.reads
+                if let edit = file.lastEdit { merged.lastEdit = max(merged.lastEdit ?? edit, edit) }
+                merged.lastTouch = max(merged.lastTouch ?? file.lastTouch, file.lastTouch)
+                if !merged.agents.contains(agent) { merged.agents.append(agent) }
+                byPath[file.path] = merged
+            }
+        }
+        return Array(byPath.values)
+    }
+
+    /// How many times the agents named each artifact link.
+    public func artifactMentions() -> [String: Int] {
+        var counts: [String: Int] = [:]
+        for (_, facts) in perAgent { for artifact in facts.artifacts { counts[artifact.url, default: 0] += 1 } }
+        return counts
     }
 
     /// Newest first.
