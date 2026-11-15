@@ -35,6 +35,18 @@ public struct TranscriptFacts: Codable, Equatable, Sendable {
             self.at = at
             self.id = id
         }
+
+        /// The text without the notices Claude Code appends for the receiving agent (`relayNotices`).
+        public var readable: String { TranscriptFacts.withoutRelayNotices(text) }
+    }
+
+    /// Claude Code appends notices to a peer message for the agent that receives it, such as
+    /// `<artifact-content-authored-by-others/>` and then "The session that sent this message has handled …". They
+    /// matter to that agent when it arrives, not in the record a person reads.
+    public static func withoutRelayNotices(_ text: String) -> String {
+        text.replacingOccurrences(of: #"\s*<[a-z][a-z0-9-]*/>\s*The session that sent this message[^\n]*"#, with: "",
+                                  options: .regularExpression)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     public struct Usage: Codable, Equatable, Sendable {
@@ -730,7 +742,7 @@ public final class TranscriptScanner: @unchecked Sendable {
         }
         let end = text.range(of: "</cross-session-message>", range: close.upperBound..<text.endIndex)?.lowerBound ?? text.endIndex
         return (attribute("from-name") ?? "another session", attribute("from"),
-                String(text[close.upperBound..<end]).trimmingCharacters(in: .whitespacesAndNewlines))
+                TranscriptFacts.withoutRelayNotices(String(text[close.upperBound..<end])))
     }
 }
 
