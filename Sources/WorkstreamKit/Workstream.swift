@@ -22,6 +22,9 @@ public struct Workstream: Codable, Equatable, Sendable {
     /// Artifacts (pages, links) pinned in the app's panel. Only the app writes these; agents' artifacts come
     /// from their transcripts.
     public var pinnedArtifacts: PinnedArtifactsSection?
+    /// Files and artifacts (paths or links) hidden from the panel's lists; a filter still finds them. Only the app
+    /// writes these.
+    public var hidden: [String]?
     public var tickets: TicketsSection?
     /// Agent sessions that left when their tab closed. Resuming one brings it back here, not to a new workstream.
     public var former: [String]?
@@ -423,7 +426,7 @@ public struct Workstream: Codable, Equatable, Sendable {
     }
 
     private enum CodingKeys: String, CodingKey {
-        case version, id, name, folder, agents, sessions, overview, rules, memory, progress, waiting, fyi, files, tickets, former, lastIDs
+        case version, id, name, folder, agents, sessions, overview, rules, memory, progress, waiting, fyi, files, pinnedArtifacts, hidden, tickets, former, lastIDs
     }
 
     public init(from decoder: Decoder) throws {
@@ -441,6 +444,8 @@ public struct Workstream: Codable, Equatable, Sendable {
         waiting = try c.decodeIfPresent(WaitingSection.self, forKey: .waiting)
         fyi = try c.decodeIfPresent(FYISection.self, forKey: .fyi)
         files = try c.decodeIfPresent(FilesSection.self, forKey: .files)
+        pinnedArtifacts = try c.decodeIfPresent(PinnedArtifactsSection.self, forKey: .pinnedArtifacts)
+        hidden = try c.decodeIfPresent([String].self, forKey: .hidden)
         tickets = try c.decodeIfPresent(TicketsSection.self, forKey: .tickets)
         former = try c.decodeIfPresent([String].self, forKey: .former)
         lastIDs = try c.decodeIfPresent([String: Int].self, forKey: .lastIDs)
@@ -460,6 +465,8 @@ public struct Workstream: Codable, Equatable, Sendable {
         try c.encodeIfPresent(waiting, forKey: .waiting)
         try c.encodeIfPresent(fyi, forKey: .fyi)
         try c.encodeIfPresent(files, forKey: .files)
+        try c.encodeIfPresent(pinnedArtifacts, forKey: .pinnedArtifacts)
+        try c.encodeIfPresent(hidden, forKey: .hidden)
         try c.encodeIfPresent(tickets, forKey: .tickets)
         try c.encodeIfPresent(former, forKey: .former)
         try c.encodeIfPresent(lastIDs, forKey: .lastIDs)
@@ -545,7 +552,14 @@ public struct Workstream: Codable, Equatable, Sendable {
         pinnedArtifacts = items.isEmpty ? nil : PinnedArtifactsSection(items: items, updated: date)
     }
 
-    /// The most FYI notes kept; older ones drop off.
+    /// Hides a file or artifact (by its path or link) from the panel's lists, or shows it again.
+    public mutating func toggleHidden(_ key: String) {
+        var items = hidden ?? []
+        if let index = items.firstIndex(of: key) { items.remove(at: index) } else { items.append(key) }
+        hidden = items.isEmpty ? nil : items
+    }
+
+        /// The most FYI notes kept; older ones drop off.
     public static let fyiLimit = 20
 
     /// Adds an FYI note (newest last in the file). Returns its id.

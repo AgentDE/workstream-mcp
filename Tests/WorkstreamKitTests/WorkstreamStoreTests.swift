@@ -40,8 +40,13 @@ struct WorkstreamStoreTests {
         workstream.overview = .init(text: "Training the no-text arm.")
         workstream.progress = .init(rows: [.init(label: "campaign", value: 0.72, text: "4,375 episodes"), .init(label: "backups", text: "no pods")])
         workstream.waiting = .init(asks: [.init(id: "a1", question: "Seed 1 only?", options: ["Seed 1", "Both"], agent: "s-1")])
+        workstream.togglePinnedArtifact(.init(url: "https://example.com/a", title: "A", at: Date()))
+        workstream.toggleHidden("/tmp/scratch.log")
         try store.write(workstream)
         #expect(store.read("ws-1") == roundedDates(workstream))
+        // The app's own sections are saved too, not only the agents'.
+        #expect(store.read("ws-1")?.pinnedArtifacts?.items.map(\.url) == ["https://example.com/a"])
+        #expect(store.read("ws-1")?.hidden == ["/tmp/scratch.log"])
         let leftovers = try FileManager.default.contentsOfDirectory(atPath: dir.path).filter { $0.hasSuffix(".tmp") }
         #expect(leftovers.isEmpty)
     }
@@ -138,6 +143,13 @@ struct WorkstreamStoreTests {
         workstream.togglePinnedArtifact(other)
         workstream.togglePinnedArtifact(page)
         #expect(workstream.pinnedArtifacts == nil && !workstream.hasContent)
+        // Hiding again shows it again.
+        workstream.toggleHidden("/tmp/a.log")
+        workstream.toggleHidden("https://example.com/a")
+        workstream.toggleHidden("/tmp/a.log")
+        #expect(workstream.hidden == ["https://example.com/a"])
+        workstream.toggleHidden("https://example.com/a")
+        #expect(workstream.hidden == nil)
     }
 
     /// Dates survive encoding to whole seconds.
