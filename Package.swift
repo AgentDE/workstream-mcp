@@ -15,6 +15,7 @@ let package = Package(
         .target(name: "WorkstreamKit", path: "Sources/WorkstreamKit"),
         // The MCP server (stdio), Claude Code hooks and the status line wrapper.
         .executableTarget(name: "workstream-mcp", dependencies: ["WorkstreamKit"], path: "Sources/workstream-mcp"),
-        .testTarget(name: "WorkstreamKitTests", dependencies: ["WorkstreamKit", "workstream-mcp"], path: "Tests/WorkstreamKitTests"),
+        .testTarget(name: "WorkstreamKitTests", dependencies: ["WorkstreamKit", "workstream-mcp"], path: "Tests/WorkstreamKitTests",
+                    exclude: ["Fixtures"]),
     ]
 )
