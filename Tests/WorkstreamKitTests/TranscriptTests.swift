@@ -291,6 +291,18 @@ struct TranscriptTests {
         }
     }
 
+    /// Claude Code records a delivery as queued (notices stripped by the parser) and as an attachment (notices
+    /// kept): one message.
+    @Test func aDeliveryWithAndWithoutNoticesIsOneMessage() {
+        var facts = TranscriptFacts()
+        let now = ScheduleScanner.parseDate(Fixture.t2)!
+        facts.addMessage(.init(outgoing: false, peer: "reactions", text: "Here's the list.", at: now))
+        facts.addMessage(.init(outgoing: false, peer: "reactions",
+                               text: "\nHere's the list.\n<remote-control-device-report/>\nThe session that sent this message has handled text.",
+                               at: now.addingTimeInterval(0.04), id: "b115b0b5"))
+        #expect(facts.messages.count == 1)
+    }
+
     /// A message between two agents of the workstream is in both transcripts; the panel lists it once, as sent.
     @Test func aMessageBetweenTwoAttachedAgentsIsListedOnce() {
         var a = TranscriptFacts(), b = TranscriptFacts()

@@ -179,10 +179,12 @@ public struct TranscriptFacts: Codable, Equatable, Sendable {
         var message = message
         if message.outgoing, message.peer.hasPrefix("uds:"), let name = peerNames[message.peer] { message.peer = name }
         // The same delivery can be recorded more than once: queued, as an attachment, and as the prompt it became,
-        // which can be long after it was queued if the agent was busy.
+        // which can be long after it was queued if the agent was busy. Some copies carry Claude Code's notices
+        // and some don't, so they're compared without them.
+        let readable = message.readable
         if messages.suffix(20).contains(where: {
             ($0.id != nil && $0.id == message.id)
-                || ($0.outgoing == message.outgoing && $0.peer == message.peer && $0.text == message.text
+                || ($0.outgoing == message.outgoing && $0.peer == message.peer && $0.readable == readable
                     && abs($0.at.timeIntervalSince(message.at)) < (message.outgoing ? 120 : 6 * 3600))
         }) { return }
         messages.append(message)
@@ -342,10 +344,11 @@ public final class TranscriptScanner: @unchecked Sendable {
     // MARK: Snapshot
 
     struct Snapshot: Codable {
-        /// 6: a fork's inherited lines aren't counted (5: names for reply addresses, sends only once they succeed;
+        /// 7: a delivery recorded with and without Claude Code's notices counts once (6: a fork's inherited lines
+        /// aren't counted; 5: names for reply addresses, sends only once they succeed;
         /// 4: messages queued for the agent; 3: usage by day; 2: local HTML pages as artifacts); transcripts read
         /// before are read again.
-        static let current = 6
+        static let current = 7
         var version = current
         var format: Format
         var offset: UInt64
