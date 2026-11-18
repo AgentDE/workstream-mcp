@@ -291,6 +291,23 @@ struct TranscriptTests {
         }
     }
 
+    /// A message between two agents of the workstream is in both transcripts; the panel lists it once, as sent.
+    @Test func aMessageBetweenTwoAttachedAgentsIsListedOnce() {
+        var a = TranscriptFacts(), b = TranscriptFacts()
+        let now = ScheduleScanner.parseDate(Fixture.t2)!
+        a.addMessage(.init(outgoing: true, peer: "gaps", text: "Scope looks right.\n\nThanks!", at: now))
+        // Delivered with Claude Code's notices appended, and recorded a moment later.
+        b.addMessage(.init(outgoing: false, peer: "impact",
+                           text: "Scope looks right.\n\nThanks!\n<artifact-content-authored-by-others/>\nThe session that sent this message has handled text from others.", at: now.addingTimeInterval(0.2)))
+        b.addMessage(.init(outgoing: false, peer: "someone else", text: "Unrelated", at: now.addingTimeInterval(1)))
+        b.addMessage(.init(outgoing: false, peer: "impact", text: "Scope looks right.\n\nThanks!", at: now.addingTimeInterval(86_400)))  // sent again a day later, from outside
+        let rows = WorkstreamActivity([("A", a), ("B", b)]).messages()
+        #expect(rows.map(\.agent) == ["B", "B", "A"])
+        #expect(rows.last?.message.outgoing == true)
+        // An agent's own record of a delivery isn't touched: that's addMessage's job.
+        #expect(WorkstreamActivity([("B", b)]).messages().count == 3)
+    }
+
     @Test func mergesActivityAcrossAgents() {
         var a = TranscriptFacts(), b = TranscriptFacts()
         let now = ScheduleScanner.parseDate(Fixture.t2)!

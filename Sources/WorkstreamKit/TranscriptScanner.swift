@@ -874,10 +874,21 @@ public struct WorkstreamActivity: Sendable {
         return counts
     }
 
-    /// Newest first.
+    /// Newest first. A message between two of these agents is in both transcripts, sent by one and delivered to
+    /// the other: it's listed once, as sent.
     public func messages(_ limit: Int = 15) -> [AgentMessage] {
-        perAgent.flatMap { agent, facts in facts.messages.map { AgentMessage(agent: agent, message: $0) } }
-            .sorted { $0.message.at > $1.message.at }.prefix(limit).map { $0 }
+        let all = perAgent.flatMap { agent, facts in facts.messages.map { AgentMessage(agent: agent, message: $0) } }
+        let body = { (m: TranscriptFacts.Message) in m.readable.trimmingCharacters(in: .whitespacesAndNewlines) }
+        var sent: [String: [AgentMessage]] = [:]
+        for row in all where row.message.outgoing { sent[body(row.message), default: []].append(row) }
+        // Delivery follows sending, though a busy agent may record it later.
+        let delivered = { (row: AgentMessage) in
+            !row.message.outgoing && (sent[body(row.message)] ?? []).contains {
+                $0.agent != row.agent && row.message.at.timeIntervalSince($0.message.at) > -60
+                    && row.message.at.timeIntervalSince($0.message.at) < 6 * 3600
+            }
+        }
+        return all.filter { !delivered($0) }.sorted { $0.message.at > $1.message.at }.prefix(limit).map { $0 }
     }
 
     /// Newest first, one row per link; local pages that are gone (a job's temporary folder, say) are left out.
