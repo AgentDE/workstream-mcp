@@ -437,7 +437,9 @@ public final class WorkstreamServer {
         case "open_in_viewer":
             let raw = try string("path")
             let target: String
-            if raw.hasPrefix("http://localhost") || raw.hasPrefix("http://127.0.0.1") || raw.hasPrefix("https://localhost") {
+            if raw.hasPrefix("http://") || raw.hasPrefix("https://") {
+                // Only pages on this Mac: the viewer shares the user's sign-ins with every site.
+                guard LoopbackURL.isLoopback(raw) else { throw ToolError(message: "Only local pages (localhost) open in the viewer; \(raw) isn't one.") }
                 target = raw
             } else {
                 target = absolute(raw)
@@ -625,4 +627,14 @@ public final class WorkstreamServer {
 
 private extension Double {
     func clamped(_ low: Double, _ high: Double) -> Double { Swift.min(high, Swift.max(low, self)) }
+}
+
+/// A page served on this Mac: http(s) to localhost, 127.0.0.1 or ::1 (or a `*.localhost` name), with no user info.
+/// Parsed, not prefix-matched: `http://localhost.example.com` and `http://localhost@example.com` are other sites.
+public enum LoopbackURL {
+    public static func isLoopback(_ text: String) -> Bool {
+        guard let url = URLComponents(string: text), let scheme = url.scheme?.lowercased(), ["http", "https"].contains(scheme),
+              url.user == nil, url.password == nil, let host = url.host?.lowercased() else { return false }
+        return ["localhost", "127.0.0.1", "::1", "[::1]"].contains(host) || host.hasSuffix(".localhost")
+    }
 }

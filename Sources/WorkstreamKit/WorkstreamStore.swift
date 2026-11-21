@@ -84,11 +84,26 @@ public final class WorkstreamStore: @unchecked Sendable {
         guard fd >= 0 else { throw POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO) }
         defer { flock(fd, LOCK_UN); close(fd) }
         flock(fd, LOCK_EX)
-        let before = read(id)
+        let before = try readForUpdate(id)
         var workstream = before ?? Workstream(id: id)
         change(&workstream)
         if workstream != before { try write(workstream) }
         return workstream
+    }
+
+    /// The workstream as it is on disk, nil only when there's no file. A file that exists but can't be read or
+    /// decoded (say, from a newer version) is never replaced by an empty workstream: it's copied once to
+    /// `<id>.json.unreadable` and the update fails, so nothing in it is lost.
+    func readForUpdate(_ id: String) throws -> Workstream? {
+        guard let url = url(for: id) else { throw CocoaError(.fileWriteInvalidFileName) }
+        guard FileManager.default.fileExists(atPath: url.path) else { return nil }
+        do {
+            return try Self.decoder.decode(Workstream.self, from: Data(contentsOf: url))
+        } catch {
+            let backup = url.appendingPathExtension("unreadable")
+            if !FileManager.default.fileExists(atPath: backup.path) { try? FileManager.default.copyItem(at: url, to: backup) }
+            throw UnreadableWorkstream(id: id, reason: error.localizedDescription, backup: backup.lastPathComponent)
+        }
     }
 
     /// Every workstream in the folder.
@@ -101,6 +116,10 @@ public final class WorkstreamStore: @unchecked Sendable {
     /// Makes `to` the agent session's workstream: detaches it from any other (keeping its open asks there)
     /// and attaches it here, so a session is in exactly one workstream.
     public func moveAgent(session: String, kind: String, tab: String?, to target: String, folder: String? = nil) throws {
+        try withMembershipLock { try moveAgentLocked(session: session, kind: kind, tab: tab, to: target, folder: folder) }
+    }
+
+    private func moveAgentLocked(session: String, kind: String, tab: String?, to target: String, folder: String?) throws {
         for workstream in all() where workstream.id != target && workstream.agents.contains(where: { $0.session == session }) {
             try update(workstream.id) { $0.detach(session: session, clearAsks: false) }
         }
@@ -116,14 +135,30 @@ public final class WorkstreamStore: @unchecked Sendable {
     /// Returns the workstream the session is in.
     @discardableResult
     public func adopt(session: String, kind: String, tab: String, fallback: String, folder: String? = nil) throws -> String {
-        guard let current = Self.sessionIndex(all())[session] else {
-            try moveAgent(session: session, kind: kind, tab: tab, to: fallback, folder: folder)
-            return fallback
+        // Finding the session and changing its entry happen under one lock, so an agent switching workstreams
+        // at the same moment can't be put back where it was (and end up listed twice).
+        try withMembershipLock {
+            guard let current = Self.sessionIndex(all())[session] else {
+                try moveAgentLocked(session: session, kind: kind, tab: tab, to: fallback, folder: folder)
+                return fallback
+            }
+            if read(current)?.agents.first(where: { $0.session == session })?.tab != tab {
+                // Only notes the tab; a session that left meanwhile isn't added back.
+                try update(current) { if $0.agents.contains(where: { $0.session == session }) { $0.attach(session: session, kind: kind, tab: tab) } }
+            }
+            return current
         }
-        if read(current)?.agents.first(where: { $0.session == session })?.tab != tab {
-            try update(current) { $0.attach(session: session, kind: kind, tab: tab) }
-        }
-        return current
+    }
+
+    /// One lock for the whole folder around changes to which workstream lists a session, across processes (the
+    /// app and every agent's MCP server). Each workstream file still has its own lock for its contents.
+    private func withMembershipLock<T>(_ body: () throws -> T) throws -> T {
+        try ensureDirectory()
+        let fd = open(directory.appendingPathComponent(".membership.lock").path, O_CREAT | O_RDWR | O_CLOEXEC, 0o600)
+        guard fd >= 0 else { throw POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO) }
+        defer { flock(fd, LOCK_UN); close(fd) }
+        flock(fd, LOCK_EX)
+        return try body()
     }
 
     // MARK: Rules each agent session has received
@@ -248,4 +283,12 @@ public final class WorkstreamStore: @unchecked Sendable {
         formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
         return formatter
     }()
+}
+
+/// A workstream file that exists but can't be read: updates refuse rather than start it over.
+public struct UnreadableWorkstream: LocalizedError, Equatable {
+    public let id: String, reason: String, backup: String
+    public var errorDescription: String? {
+        "Workstream \(id) couldn't be read (\(reason)), so it wasn't changed. A copy is kept as \(backup)."
+    }
 }

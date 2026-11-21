@@ -64,6 +64,20 @@ struct WorkstreamStoreTests {
         #expect(store.read("ws-2")?.agents.map(\.session) == ["s-1"])
     }
 
+    /// A file that exists but can't be decoded (a wrong-typed field, say) is kept: the update fails instead of
+    /// writing an empty workstream over it, and a copy is left beside it.
+    @Test func anUnreadableWorkstreamIsNeverReplaced() throws {
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let store = WorkstreamStore(directory: dir)
+        try store.update("ws-3") { $0.attach(session: "s-1", kind: "claude") }
+        let url = try #require(store.url(for: "ws-3"))
+        let broken = #"{"id": "ws-3", "agents": "not a list", "rules": [{"id": "r1", "text": "keep me"}]}"#
+        try broken.write(to: url, atomically: true, encoding: .utf8)
+        #expect(throws: UnreadableWorkstream.self) { try store.update("ws-3") { $0.name = "renamed" } }
+        #expect(try String(contentsOf: url, encoding: .utf8) == broken)
+        #expect(FileManager.default.fileExists(atPath: url.path + ".unreadable"))
+    }
+
     /// Phase-1 files listed `sessions` as {id, agent}; they still load, as agents.
     @Test func readsThePhaseOneFormat() throws {
         defer { try? FileManager.default.removeItem(at: dir) }
@@ -200,5 +214,15 @@ struct AskReplyTests {
         #expect(ask.reply("Seed 2", byDefault: true) == #"No answer in time to your question "Which seed should I use?" (a3), so going with its default: Seed 2"#)
         let long = Workstream.Ask(id: "a4", question: String(repeating: "x", count: 280), options: [])
         #expect(long.reply("ok").contains(String(repeating: "x", count: 199) + "…\""))
+    }
+
+    /// Only pages on this Mac open in the viewer from the MCP server: hosts are parsed, not prefix-matched.
+    @Test func loopbackURLsAreParsed() {
+        for ok in ["http://localhost:3000/a", "https://localhost", "http://127.0.0.1:8080", "http://[::1]:5000/", "http://app.localhost/x"] {
+            #expect(LoopbackURL.isLoopback(ok), "\(ok)")
+        }
+        for bad in ["https://localhost.attacker.example/", "https://localhost@claude.ai/", "http://127.0.0.1.evil.com", "file:///etc/hosts", "https://claude.ai"] {
+            #expect(!LoopbackURL.isLoopback(bad), "\(bad)")
+        }
     }
 }
