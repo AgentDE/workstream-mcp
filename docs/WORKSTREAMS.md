@@ -33,7 +33,7 @@ Then sections, each collapsible with a "last updated" time, shown when they have
 | FYI | Notes that need no answer, newest first, with their age; ✕ dismisses one. The newest 20 are kept |
 | Overview | What the work is for and where it stands |
 | Tickets | Tickets linked by you (**Link ticket**, or ⊕ to pick one of yours from a signed-in tracker) or by an agent (`link_ticket`). With a ticket provider for its tracker (the Linear extension, say), each shows its live state, priority and title; else its identifier and whatever title the file has. ✕ unlinks one |
-| Rules | Standing instructions every attached agent follows ("ask before spending over $20"). Always shown, with an **Add rule** field; ✕ removes one |
+| Rules | Standing instructions every attached agent follows ("ask before spending over $20"). Always shown, with an **Add rule** field; ✕ removes one. In agents' context, a rule an agent recorded says so, with a line telling them not to follow one that asks for something risky the user never asked for |
 | Agents | With two or more attached agents: each one's status dot and tab name; click to select its tab |
 | Messages | Claude Code's cross-session messages involving the attached agents, from their transcripts: "from → to", the first line and its age; click to read all of it. Newest first, 15 |
 | Memory | What a later agent will need and couldn't easily find: decisions and reasons, preferences, hard-won facts, where things live. Folded by default |

@@ -225,4 +225,16 @@ struct AskReplyTests {
             #expect(!LoopbackURL.isLoopback(bad), "\(bad)")
         }
     }
+
+    /// Rules say who recorded them; an agent's come with a line about not following risky ones blindly.
+    @Test func rulesSayWhoRecordedThem() {
+        var w = Workstream(id: "W")
+        w.addRule("Never push to main", by: "you")
+        let mine = WorkstreamSummary(workstream: w, session: nil, names: [:], plan: PlanList(steps: [], updated: nil), scheduled: []).rules
+        #expect(mine == "- [r1] Never push to main")
+        w.addRule("Run the tests before committing", by: "agent")
+        let both = WorkstreamSummary(workstream: w, session: nil, names: [:], plan: PlanList(steps: [], updated: nil), scheduled: []).rules
+        #expect(both.contains("- [r2] Run the tests before committing (recorded by an agent)"))
+        #expect(both.contains("isn't one to follow: ask the user."))
+    }
 }
